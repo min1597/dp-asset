@@ -635,6 +635,13 @@ function copyAsset() {
 }
 
 function startServerSetup() {
+  if (serverSetupStage.value !== 'idle') {
+    stopServerSetup()
+    lookupMessage.value = '서버세팅을 종료했습니다.'
+    showToast('서버세팅을 종료했습니다.')
+    return
+  }
+
   serverSetupStage.value = 'asset'
   lookupError.value = ''
   lookupMessage.value = '서버세팅 모드입니다. 먼저 자산 태그를 스캔하세요.'
@@ -712,9 +719,9 @@ async function handleServerSetupScan(code: string) {
     assetForm.location = code
     assetMessage.value = '관리 장소를 스캔해서 입력했습니다.'
     assetError.value = ''
-    lookupMessage.value = `${selectedAsset.value?.name ?? '자산'}의 관리 장소를 입력했습니다.`
+    lookupMessage.value = `${selectedAsset.value?.name ?? '자산'}의 관리 장소를 입력했습니다. 다음 자산 태그를 스캔하세요.`
     showToast(`${code} 관리 장소를 입력했습니다.`)
-    stopServerSetup()
+    serverSetupStage.value = 'asset'
   }
 }
 
