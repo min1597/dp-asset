@@ -521,6 +521,7 @@ let scannerCooldown = false
 let lastDetectedCode = ''
 let lastDetectedAt = 0
 let locationLookupToken = 0
+let locationLookupTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const activeManagers = computed(() => managers.value.filter((manager) => manager.isActive))
 const activeAssets = computed(() => assets.value.filter((asset) => asset.status === 'active').length)
@@ -555,6 +556,13 @@ function prettyJson(value: Record<string, unknown>) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function isLocationReferenceCandidate(value: string) {
+  if (!value) return false
+  if (isUuid(value)) return true
+  if (value.includes(' ')) return false
+  return value.length >= 4
 }
 
 function showToast(message: string, type: ToastType = 'success') {
@@ -1095,7 +1103,12 @@ watch(
     const normalizedLocation = value.trim()
     const currentToken = ++locationLookupToken
 
-    if (!isUuid(normalizedLocation)) {
+    if (locationLookupTimer) {
+      clearTimeout(locationLookupTimer)
+      locationLookupTimer = null
+    }
+
+    if (!isLocationReferenceCandidate(normalizedLocation)) {
       locationLinkedAsset.value = null
       return
     }
@@ -1106,15 +1119,20 @@ watch(
       return
     }
 
-    try {
-      const response = await api<Asset>(`/v0/assets/${normalizedLocation}`)
-      if (currentToken !== locationLookupToken) return
-      locationLinkedAsset.value = response.data
-    }
-    catch {
-      if (currentToken !== locationLookupToken) return
-      locationLinkedAsset.value = null
-    }
+    locationLookupTimer = window.setTimeout(async () => {
+      try {
+        const response = isUuid(normalizedLocation)
+          ? await api<Asset>(`/v0/assets/${normalizedLocation}`)
+          : await api<Asset>(`/v0/assets/lookup?code=${encodeURIComponent(normalizedLocation)}`)
+
+        if (currentToken !== locationLookupToken) return
+        locationLinkedAsset.value = response.data
+      }
+      catch {
+        if (currentToken !== locationLookupToken) return
+        locationLinkedAsset.value = null
+      }
+    }, 250)
   },
   { immediate: true }
 )
@@ -1190,6 +1208,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (barcodeListener) {
     window.removeEventListener('keydown', barcodeListener, true)
+  }
+  if (locationLookupTimer) {
+    clearTimeout(locationLookupTimer)
   }
   stopScanner()
 })
