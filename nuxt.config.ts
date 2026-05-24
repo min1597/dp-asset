@@ -20,7 +20,7 @@ export default defineNuxtConfig({
   ],
   runtimeConfig: {
     public: {
-      apiEndpoint: process.env.API_ENDPOINT ?? 'http://127.0.0.1:4100',
+      apiEndpoint: process.env.API_ENDPOINT ?? 'https://api-am.deplo.is',
       build
     }
   },
