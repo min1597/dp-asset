@@ -37,7 +37,10 @@ export default defineNuxtConfig({
     }
   },
   icon: {
-    serverBundle: 'local'
+    serverBundle: {
+      collections: ['mdi', 'fa6-solid', 'material-symbols'],
+      externalizeIconsJson: true
+    }
   },
   modules: [
     '@nuxt/content',
