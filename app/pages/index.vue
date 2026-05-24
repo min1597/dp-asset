@@ -560,9 +560,7 @@ function isUuid(value: string) {
 
 function isLocationReferenceCandidate(value: string) {
   if (!value) return false
-  if (isUuid(value)) return true
-  if (value.includes(' ')) return false
-  return value.length >= 4
+  return value.length >= 1
 }
 
 function showToast(message: string, type: ToastType = 'success') {
