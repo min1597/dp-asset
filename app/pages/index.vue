@@ -120,7 +120,7 @@ main.console-page
                 option(value="active") 운영 중
                 option(value="disposed") 폐기
             div.scan-action-row
-              button.solid-button.dark(type="button" @click="loadAssets") 새로고침
+              button.solid-button.dark(type="button" :class="{ 'active-action': serverSetupStage !== 'idle' }" @click="startServerSetup") 서버세팅
               button.ghost-button(type="button" @click="openScanner('lookup')") 스캔모드
         div.item-list
           button.item-card(
@@ -512,6 +512,7 @@ const scannerMode = ref<'lookup' | 'serial'>('lookup')
 const scannerStatus = ref('카메라를 시작하면 코드를 자동으로 읽습니다.')
 const scannerError = ref('')
 const scannerVideoRef = ref<HTMLVideoElement | null>(null)
+const serverSetupStage = ref<'idle' | 'asset' | 'location'>('idle')
 const toasts = ref<ToastItem[]>([])
 let toastId = 0
 let scannerStream: MediaStream | null = null
@@ -522,6 +523,7 @@ let lastDetectedCode = ''
 let lastDetectedAt = 0
 let locationLookupToken = 0
 let locationLookupTimer: ReturnType<typeof window.setTimeout> | null = null
+let assetFilterTimer: ReturnType<typeof window.setTimeout> | null = null
 
 const activeManagers = computed(() => managers.value.filter((manager) => manager.isActive))
 const activeAssets = computed(() => assets.value.filter((asset) => asset.status === 'active').length)
@@ -632,6 +634,17 @@ function copyAsset() {
   assetMessage.value = `${source.name} 자산 정보를 복사했습니다. 저장하면 새 자산으로 등록됩니다.`
 }
 
+function startServerSetup() {
+  serverSetupStage.value = 'asset'
+  lookupError.value = ''
+  lookupMessage.value = '서버세팅 모드입니다. 먼저 자산 태그를 스캔하세요.'
+  showToast('서버세팅을 시작했습니다. 먼저 자산을 스캔하세요.')
+}
+
+function stopServerSetup() {
+  serverSetupStage.value = 'idle'
+}
+
 function selectManager(manager: Manager) {
   currentMenu.value = 'manager'
   managerForm.id = manager.id
@@ -678,6 +691,31 @@ async function loadAssets() {
 
   const response = await api<Asset[]>(`/v0/assets${params.toString() ? `?${params.toString()}` : ''}`)
   assets.value = response.data
+}
+
+async function handleServerSetupScan(code: string) {
+  if (serverSetupStage.value === 'asset') {
+    const found = await lookupAsset(code)
+    if (!found) {
+      showToast(`${code} 자산을 찾지 못했습니다.`, 'error')
+      lookupMessage.value = '서버세팅 중입니다. 자산 태그를 다시 스캔하세요.'
+      return
+    }
+
+    serverSetupStage.value = 'location'
+    lookupMessage.value = '자산을 선택했습니다. 이제 관리 장소 태그를 스캔하세요.'
+    showToast('자산 선택 완료. 이제 관리 장소를 스캔하세요.')
+    return
+  }
+
+  if (serverSetupStage.value === 'location') {
+    assetForm.location = code
+    assetMessage.value = '관리 장소를 스캔해서 입력했습니다.'
+    assetError.value = ''
+    lookupMessage.value = `${selectedAsset.value?.name ?? '자산'}의 관리 장소를 입력했습니다.`
+    showToast(`${code} 관리 장소를 입력했습니다.`)
+    stopServerSetup()
+  }
 }
 
 async function saveManager() {
@@ -1135,6 +1173,20 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [filters.query, filters.category, filters.status],
+  () => {
+    if (authMode.value !== 'app') return
+    if (assetFilterTimer) {
+      clearTimeout(assetFilterTimer)
+    }
+    assetFilterTimer = window.setTimeout(() => {
+      loadAssets().catch(() => {
+      })
+    }, 200)
+  }
+)
+
 onMounted(async () => {
   try {
     await checkAuthStatus()
@@ -1172,16 +1224,28 @@ onMounted(async () => {
     if (event.key === 'Escape') {
       scannerBuffer = ''
       scannerPreview.value = ''
-      lookupMessage.value = '리더기 입력 대기 중입니다.'
+      if (serverSetupStage.value !== 'idle') {
+        stopServerSetup()
+        lookupMessage.value = '서버세팅을 취소했습니다.'
+      }
+      else {
+        lookupMessage.value = '리더기 입력 대기 중입니다.'
+      }
       return
     }
 
     if (event.key === 'Enter') {
       const code = scannerBuffer.trim()
       if (code.length > 0) {
-        lookupMessage.value = `${code} 입력을 감지했습니다. 조회 중입니다.`
-        lookupError.value = ''
-        lookupAsset(scannerBuffer)
+        if (serverSetupStage.value !== 'idle') {
+          lookupError.value = ''
+          handleServerSetupScan(code)
+        }
+        else {
+          lookupMessage.value = `${code} 입력을 감지했습니다. 조회 중입니다.`
+          lookupError.value = ''
+          lookupAsset(scannerBuffer)
+        }
       }
       scannerBuffer = ''
       scannerPreview.value = ''
@@ -1206,6 +1270,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (barcodeListener) {
     window.removeEventListener('keydown', barcodeListener, true)
+  }
+  if (assetFilterTimer) {
+    clearTimeout(assetFilterTimer)
   }
   if (locationLookupTimer) {
     clearTimeout(locationLookupTimer)
@@ -1681,6 +1748,10 @@ onBeforeUnmount(() => {
 
 .solid-button.dark {
   background: #11211d;
+}
+
+.solid-button.dark.active-action {
+  background: #0f766e;
 }
 
 .ghost-button {
