@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+
+@theme {
+  --color-primary-100: #def7f1;
+  --color-primary-200: #b9ece1;
+  --color-primary-300: #86dacd;
+  --color-primary-400: #52c5b7;
+  --color-primary-500: #20ad9e;
+  --color-primary-600: #16897d;
+  --color-primary-700: #106a61;
+  --color-primary-800: #0d534b;
+  --ui-primary: #16897d;
+}
+
+:root {
+  --ui-bg: #f4f7f7;
+  --background-color: #f4f7f7;
+  --text-color: #11211d;
+  --muted-color: #5c706a;
+  --panel-color: rgba(255, 255, 255, 0.86);
+  --panel-strong: #ffffff;
+  --border-color: rgba(17, 33, 29, 0.08);
+}
+
+html,
+body,
+#__nuxt {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text-color);
+  font-family: 'Pretendard', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(32, 173, 158, 0.20), transparent 30%),
+    radial-gradient(circle at top right, rgba(22, 137, 125, 0.14), transparent 28%),
+    linear-gradient(180deg, #f7fbfb 0%, #eef4f3 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+  transform: translate3d(12px, 0, 0);
+}
